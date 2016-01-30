@@ -13,6 +13,7 @@ CPU = cortex-m4
 OBJECTS	= main.o \
 	      sysinit.o \
 	      crt0.o \
+	      \
 	      freertos/portable/port.o \
 	      freertos/croutine.o \
 	      freertos/event_groups.o \
@@ -21,6 +22,17 @@ OBJECTS	= main.o \
 	      freertos/tasks.o \
 	      freertos/timers.o \
 	      freertos/heap_2.o \
+	      \
+	      freescale/usb_descriptor.o \
+	      freescale/wdt_kinetis.o \
+	      fsl_usb_stack_v4.1.1/driver/usb_driver.o \
+	      fsl_usb_stack_v4.1.1/driver/usbevent.o \
+	      fsl_usb_stack_v4.1.1/driver/kinetis/usb_dci_kinetis.o \
+	      fsl_usb_stack_v4.1.1/common/usb_class.o \
+	      fsl_usb_stack_v4.1.1/common/usb_framework.o \
+	      fsl_usb_stack_v4.1.1/class/usb_cdc.o \
+	      fsl_usb_stack_v4.1.1/class/usb_cdc_pstn.o \
+	      cdc/virtual_com.o \
 
 #  Select the toolchain by providing a path to the top level
 #  directory; this will be the folder that holds the
@@ -62,7 +74,12 @@ INCDIRS += -I$(TEENSY3X_INC)
 INCDIRS += -I.
 INCDIRS += -I./freertos/include
 INCDIRS += -I./freertos/portable
-
+INCDIRS += -I./freescale
+INCDIRS += -I./fsl_usb_stack_v4.1.1/driver/
+INCDIRS += -I./fsl_usb_stack_v4.1.1/driver/kinetis/
+INCDIRS += -I./fsl_usb_stack_v4.1.1/common/
+INCDIRS += -I./fsl_usb_stack_v4.1.1/class/
+INCDIRS += -I./cdc/
 
 # Name and path to the linker script
 LSCRIPT = $(TEENSY3X_BASEPATH)/Teensy31_flash.ld

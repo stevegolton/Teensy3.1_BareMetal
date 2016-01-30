@@ -51,7 +51,7 @@
  *
  */
 #define PRDIV_VAL			8				/* PLL prescaler */
-#define VDIV_VAL			32				/* PLL multiplier */
+#define VDIV_VAL			24				/* PLL multiplier */
 
 /*
  *  Optionally define the system console (one of the UARTs) for serial I/O.
