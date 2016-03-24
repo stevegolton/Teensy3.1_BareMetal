@@ -1,5 +1,5 @@
 #  Project Name
-PROJECT=freertos_example
+PROJECT=blink
 
 #  Type of CPU/MCU in target hardware
 CPU = cortex-m4
@@ -11,28 +11,8 @@ CPU = cortex-m4
 #  You will also need code for startup (following reset) and
 #  any code needed to get the PLL configured.
 OBJECTS	= main.o \
-	      sysinit.o \
+	      ../common/sysinit.o \
 	      crt0.o \
-	      \
-	      freertos/portable/port.o \
-	      freertos/croutine.o \
-	      freertos/event_groups.o \
-	      freertos/list.o \
-	      freertos/queue.o \
-	      freertos/tasks.o \
-	      freertos/timers.o \
-	      freertos/heap_2.o \
-	      \
-	      freescale/usb_descriptor.o \
-	      freescale/wdt_kinetis.o \
-	      fsl_usb_stack_v4.1.1/driver/usb_driver.o \
-	      fsl_usb_stack_v4.1.1/driver/usbevent.o \
-	      fsl_usb_stack_v4.1.1/driver/kinetis/usb_dci_kinetis.o \
-	      fsl_usb_stack_v4.1.1/common/usb_class.o \
-	      fsl_usb_stack_v4.1.1/common/usb_framework.o \
-	      fsl_usb_stack_v4.1.1/class/usb_cdc.o \
-	      fsl_usb_stack_v4.1.1/class/usb_cdc_pstn.o \
-	      cdc/virtual_com.o \
 
 #  Select the toolchain by providing a path to the top level
 #  directory; this will be the folder that holds the
@@ -57,7 +37,7 @@ TARGETTYPE = /usr/lib/arm-none-eabi/lib/thumb
 #  These usually point to files from whatever distribution
 #  you are using (such as Freescale examples).  This can also
 #  include paths to any needed GCC includes or libraries.
-TEENSY3X_INC     = $(TEENSY3X_BASEPATH)/include
+TEENSY3X_INC     = $(TEENSY3X_BASEPATH)/../common/include
 GCC_INC          = $(TOOLPATH)/$(TARGETTYPE)/include
 
 
@@ -72,17 +52,9 @@ VPATH = $(TEENSY3X_BASEPATH)/common
 INCDIRS  = -I$(GCC_INC)
 INCDIRS += -I$(TEENSY3X_INC)
 INCDIRS += -I.
-INCDIRS += -I./freertos/include
-INCDIRS += -I./freertos/portable
-INCDIRS += -I./freescale
-INCDIRS += -I./fsl_usb_stack_v4.1.1/driver/
-INCDIRS += -I./fsl_usb_stack_v4.1.1/driver/kinetis/
-INCDIRS += -I./fsl_usb_stack_v4.1.1/common/
-INCDIRS += -I./fsl_usb_stack_v4.1.1/class/
-INCDIRS += -I./cdc/
 
 # Name and path to the linker script
-LSCRIPT = $(TEENSY3X_BASEPATH)/Teensy31_flash.ld
+LSCRIPT = $(TEENSY3X_BASEPATH)/../common/Teensy31_flash.ld
 
 
 OPTIMIZATION = 0
@@ -161,9 +133,7 @@ dump: $(PROJECT).elf
 	$(OBJDUMP) -h $(PROJECT).elf	
 
 clean:
-	$(REMOVE) *.o
-	$(REMOVE) freertos/*.o
-	$(REMOVE) freertos/portable/*.o
+	$(REMOVE) $(OBJECTS)
 	$(REMOVE) $(PROJECT).hex
 	$(REMOVE) $(PROJECT).elf
 	$(REMOVE) $(PROJECT).map

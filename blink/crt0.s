@@ -32,11 +32,11 @@ __interrupt_vector_table:
 	.long 0
 	.long 0
 	.long 0
-	.long vPortSVCHandler
+	.long SVC_Handler
 	.long DebugMon_Handler
 	.long 0
-	.long xPortPendSVHandler
-	.long xPortSysTickHandler
+	.long PendSV_Handler
+	.long SysTick_Handler
 
 /* The following set of vectors are specific to the Kinetis MK20DD256 devices */
 
@@ -113,7 +113,7 @@ __interrupt_vector_table:
     .long   PIT2_IRQHandler			/* PIT timer channel 2 interrupt */
     .long   PIT3_IRQHandler			/* PIT timer channel 3 interrupt */
     .long   PDB0_IRQHandler			/* PDB0 interrupt */
-    .long   USB_ISR		/* USB OTG interrupt */
+    .long   USBOTG_IRQHandler		/* USB OTG interrupt */
     .long   USBCharge_IRQHandler	/* USB charger detect interrupt */
     .long	Reserved91_IRQHandler	/* Reserved interrupt 91 */
     .long	Reserved92_IRQHandler	/* Reserved interrupt 92 */
