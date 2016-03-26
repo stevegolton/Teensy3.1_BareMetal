@@ -26,5 +26,6 @@ I started writing these examples as a result of a [quadcopter project](https://g
 I took the startup code from [Karl Hunt's Bare Metal Teensy3.1 page](http://www.seanet.com/~karllunt/bareteensy31.html) which I would strongly advise reading as he examplains the startup process of the K20 extrememely well.
 
 ## Handy reference material
- - [Kinetis K20 User Guide](http://cache.nxp.com/files/32bit/doc/ref_manual/K20P121M100SF2RM.pdf?fpsp=1&WT_TYPE=Reference%20Manuals&WT_VENDOR=FREESCALE&WT_FILE_FORMAT=pdf&WT_ASSET=Documentation&fileExt=.pdf)
- - [Demonstration software for Kinetis peripheral modules](http://cache.nxp.com/files/32bit/doc/quick_ref_guide/KQRUG.pdf)
+ - [PDF - Kinetis K20 User Guide](http://cache.nxp.com/files/32bit/doc/ref_manual/K20P121M100SF2RM.pdf?fpsp=1&WT_TYPE=Reference%20Manuals&WT_VENDOR=FREESCALE&WT_FILE_FORMAT=pdf&WT_ASSET=Documentation&fileExt=.pdf)
+ - [PDF - Demonstration software for Kinetis peripheral modules](http://cache.nxp.com/files/32bit/doc/quick_ref_guide/KQRUG.pdf)
+ - [PDF - Features of the FlexTimer Module](http://cache.nxp.com/files/32bit/doc/app_note/AN5142.pdf)
