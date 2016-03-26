@@ -4,8 +4,11 @@ This project is a set of bare metal examples demonstrating how to do standard st
  - Blinking the LED 
  - Polled UART
  - Running FreeRTOS
+ - FTM (PWM output and input capture)
+
 TODO
- - FTM (PWM and input capture)
+ - Interrupt driven UART
+ - USB CDC
 
 This is a living project and I will attempt to add more examples as I get the time.
 
