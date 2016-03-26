@@ -35,7 +35,6 @@
 #ifndef _USB_CLASS_H
 #define _USB_CLASS_H
 
-//#define DELAYED_PROCESSING  1
 /*#define DELAYED_PROCESSING  1 This define is used to delay the control
                                 processing and not have it executed as part
                                 of the interrupt routine */

@@ -269,15 +269,27 @@ void PORTE_IRQHandler(void)
 
 /******************************************************************************/
 
-// Define me if you want debugging, remove me for release!
-//#define configASSERT( x )     if( ( x ) == 0 ) { taskDISABLE_INTERRUPTS(); for( ;; ); }
-
-static __inline__ void dumbdelay_ms( const uint32_t ms );
 static void USB_Init( void );
 void USB0_Init(void);
 
 static int ledstate = 0;
 extern uint8_t g_Mem[];
+
+/**
+ * @brief		Delay using a loop.
+ * @param[in]	ms		Delay in ms.
+ */
+static __inline__ void dumbdelay_ms( const uint32_t ms )
+{
+	uint32_t loops;
+	uint32_t index;
+
+	// Calc delay in clock cycles
+	loops = ms * ( (uint32_t)mcg_clk_hz / 10000 );
+
+	// Dumb delay
+	for ( index = 0; index < loops; index++ );
+}
 
 /**
 ** @brief		Entry point to program
@@ -290,23 +302,6 @@ int main( void )
 	PORTC_PCR5 = PORT_PCR_MUX( 0x1 );	// LED is on PC5 (pin 13), config as GPIO (alt = 1)
 	GPIOC_PDDR = ( 1 << 5 );			// make this an output pin
 	GPIOC_PCOR = ( 1 << 5 );			// start with LED off
-
-	/* Configure pin as output */
-	/* GPIOC_PDDR: PDD|=0x20 */
-	GPIOC_PDDR |= GPIO_PDDR_PDD(0x20);
-
-	/* Set initialization value */
-	/* GPIOC_PDOR: PDO&=~0x20 */
-	GPIOC_PDOR &= (uint32_t)~(uint32_t)(GPIO_PDOR_PDO(0x20));
-
-	/* Initialization of Port Control register */
-	/* PORTC_PCR5: ISF=0,MUX=1 */
-	PORTC_PCR5 = (uint32_t)((PORTC_PCR5 & (uint32_t)~(uint32_t)(
-		PORT_PCR_ISF_MASK |
-		PORT_PCR_MUX(0x06)
-	   )) | (uint32_t)(
-		PORT_PCR_MUX(0x01)
-	   ));
 
 	// Flash a little startup sequence, this isn't necessary at all, just nice
 	// to see a familiar sign before things start breaking!
@@ -330,6 +325,7 @@ int main( void )
 	for(;;)
 	{
 		Watchdog_Reset();
+
 		/* Call the application task */
 		TestApp_Task();
 
@@ -343,34 +339,13 @@ int main( void )
 			ledstate = 1;
 			GPIOC_PSOR = ( 1 << 5 );
 		}
-	}
 
-	for(;;)
-	{
-		// We should never get here, so just sit in this loop forever...
-		// Probably better to flash a error sequence here so we know something
-		// has gone horribly wrong...
+		//dumbdelay_ms( 500 );
 	}
 
 	// We definitely should never get here, this return is just to keep the
 	// compiler happy
 	return  0;
-}
-
-/**
- * @brief		Delay using a loop.
- * @param[in]	ms		Delay in ms.
- */
-static __inline__ void dumbdelay_ms( const uint32_t ms )
-{
-	uint32_t loops;
-	uint32_t index;
-
-	// Calc delay in clock cycles
-	loops = ms * ( (uint32_t)mcg_clk_hz / 10000 );
-
-	// Dumb delay
-	for ( index = 0; index < loops; index++ );
 }
 
 /*!
@@ -391,11 +366,6 @@ void HardFault_Handler()
 
 void USB0_Init(void)
 {
-	// Enable interrupt in NVIC and set priority to 0 */
-		NVICICPR2 |= ( 1 << 9 );
-		NVICISER2 |= ( 1 << 9 );
-		NVICIP73 = 0x00;
-
   /* SIM_CLKDIV2: USBDIV=1,USBFRAC=0 */
   SIM_CLKDIV2 = (uint32_t)((SIM_CLKDIV2 & (uint32_t)~(uint32_t)(
                  SIM_CLKDIV2_USBDIV(0x06) |
@@ -503,6 +473,10 @@ void USB0_Init(void)
              )) | (uint8_t)(
               USB_CTL_USBENSOFEN_MASK
              ));
+
+  NVICICPR2 |= ( 1 << 9 );
+  NVICISER2 |= ( 1 << 9 );
+  NVICIP73 = 0x00;
 }
 
 static void USB_Init( void )
@@ -534,12 +508,12 @@ static void USB_Init( void )
 #endif
 	SIM_SOPT1 |= SIM_SOPT1_USBREGEN_MASK;
 
-#if defined(MCU_MK20D5)
-	NVICICPR1 = (1 << 3);	/* Clear any pending interrupts on USB */
-	NVICISER1 = (1 << 3);	/* Enable interrupts from USB module */
-#else
 	NVICICPR2 = (1 << 9);	/* Clear any pending interrupts on USB */
 	NVICISER2 = (1 << 9);	/* Enable interrupts from USB module */
-#endif
+
+	// Enable interrupt in NVIC and set priority to 0 */
+		//NVICICPR2 |= ( 1 << 9 );
+		//NVICISER2 |= ( 1 << 9 );
+		//NVICIP73 = 0x00;
 
 }
