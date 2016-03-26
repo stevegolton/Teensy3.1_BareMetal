@@ -13,12 +13,27 @@
  * FTM1CH0 = Teensy pin 22 (PTC1)
  * FTM1CH1 = Teensy pin 23 (PTC2)
  *
- * In order to test, Teensy pins 22 and 25 should be wired together so that the
- * input capture can actually capture something!
+ * In order to test, Teensy pins 22 and 23 should be wired together so that the
+ * input capture can actually capture something! Otherwise just start poking pin
+ * 23 on the ground pin to time some arbitrary pulses.
  */
 
 #include "common.h"
 #include "string.h"
+
+// FTM divider settings
+#define FTM_FC_PS_DIV_1 0
+#define FTM_FC_PS_DIV_2 1
+#define FTM_FC_PS_DIV_4 2
+#define FTM_FC_PS_DIV_8 3
+#define FTM_FC_PS_DIV_16 4
+#define FTM_FC_PS_DIV_32 5
+#define FTM_FC_PS_DIV_64 6
+#define FTM_FC_PS_DIV_128 7
+
+// Variables used to store pin23 pulse edges
+static uint16_t rising = 0xFFFF;
+static uint16_t falling = 0xFFFF;
 
 /**
  * @brief		Approximate delay using a simple loop.
@@ -46,11 +61,6 @@ void HardFault_Handler()
 	{
 		// Do the "hard fault panic" dance
 		GPIOC_PSOR = ( 1 << 5 );
-		// Do the "hard fault panic" dance
-		GPIOC_PSOR = ( 1 << 5 );
-		dumbdelay_ms( 20 );
-		GPIOC_PCOR = ( 1 << 5 );
-		dumbdelay_ms( 20 );
 		dumbdelay_ms( 20 );
 		GPIOC_PCOR = ( 1 << 5 );
 		dumbdelay_ms( 20 );
@@ -128,9 +138,9 @@ void uart_putchar( UART_MemMapPtr channel, char ch )
 }
 
 /**
- * @brief		Put a character into the tx buffer.
+ * @brief		Put a string into the tx buffer.
  * @param[in]	channel		UART module's base register pointer.
- * @param[in]	ch			Character to send.
+ * @param[in]	ch			Characters to send.
  */
 void uart_puts( UART_MemMapPtr channel, char *s )
 {
@@ -141,16 +151,6 @@ void uart_puts( UART_MemMapPtr channel, char *s )
 		uart_putchar( channel, s[i] );
 	}
 }
-
-// FTM divider settings
-#define FTM_FC_PS_DIV_1 0
-#define FTM_FC_PS_DIV_2 1
-#define FTM_FC_PS_DIV_4 2
-#define FTM_FC_PS_DIV_8 3
-#define FTM_FC_PS_DIV_16 4
-#define FTM_FC_PS_DIV_32 5
-#define FTM_FC_PS_DIV_64 6
-#define FTM_FC_PS_DIV_128 7
 
 /**
  * @brief		Initialize the FTM module 0 channel 0 for PWM.
@@ -178,7 +178,7 @@ static void init_ftm0( void )
 	/* Set up channel 1 value register */
 	FTM0_C0V = FTM_CnV_VAL( 24000 );
 
-	// First we configure the channel 1 mode register by turning on the rising
+	// Configure the channel 1 mode register by turning on the rising
 	// edge, falling edge and interrupt enable modes
 	FTM0_C1SC = ( FTM_CnSC_ELSA_MASK | FTM_CnSC_ELSB_MASK | FTM_CnSC_CHIE_MASK );
 
@@ -196,16 +196,12 @@ static void init_ftm0( void )
 	FTM0_SC = ( FTM_SC_CLKS( 0x01 ) | FTM_SC_PS( FTM_FC_PS_DIV_128 ) | FTM_SC_TOIE_MASK ); /* Set up status and control register */
 }
 
-static uint16_t up = 0xFFFF;
-static uint16_t down = 0xFFFF;
-
 /**
  * @brief		Called on an FTM interrupt.
  *
- * This function is referenced by name in the vector table and so is called
- * under any FTM0 interrupt. This may include channel interrupts and overflow
- * interrupts.
- *
+ * This function is referenced by name in the vector table in crt0.s and so is
+ * called under any FTM0 interrupt. This may include channel interrupts and
+ * overflow interrupts if they are configured. Here we check for both.
  */
 void FTM0_IRQHandler( void )
 {
@@ -220,13 +216,15 @@ void FTM0_IRQHandler( void )
 		if ( GPIOC_PDIR & ( 0x1 << 2 ) )
 		{
 			// Rising edge
-			up = FTM0_C1V;
+			rising = FTM0_C1V;
+
+			// Uncomment to get a printed msg on every rising edge
 			//uart_puts( UART0_BASE_PTR, "rise\n" );
 		}
 		else
 		{
 			// Falling edge
-			down = FTM0_C1V;
+			falling = FTM0_C1V;
 			//uart_puts( UART0_BASE_PTR, "fall\n" );
 		}
 	}
@@ -259,6 +257,10 @@ void startup_blink( void )
 
 /**
  * Prints an unsigned int to a string (decimal) without using sprintf/malloc.
+ *
+ * @param[in]	buf		Character buffer to write the number out to.
+ * @param[in]	maxlen	Max length of the buffer - ensures we dont write off the end.
+ * @param[in]	input	The number to write out.
  */
 int printuint( char *buf, int maxlen, unsigned int input )
 {
@@ -340,26 +342,27 @@ int main( void )
 	// Spin in here forever
 	for ( ;; )
 	{
-		// Set LED
+		// Set LED & pause for ~500ms
 		GPIOC_PSOR = ( 1 << 5 );
 		dumbdelay_ms( 500 );
 
-		// Clear LED
+		// Clear LED & pause for ~500ms
 		GPIOC_PCOR = ( 1 << 5 );
 		dumbdelay_ms( 500 );
 
-		//continue;
-
 		// Print the results of the input capture
+		// Print & increment up-time in approximate seconds
 		printuint( buf, 32, uptime++ );
 		uart_puts( UART0_BASE_PTR, buf );
 
+		// Print the FTM0 time of the last rising edge
 		uart_puts( UART0_BASE_PTR, ": rising = " );
-		printuint( buf, 32, up );
+		printuint( buf, 32, rising );
 		uart_puts( UART0_BASE_PTR, buf );
 
+		// Print the FTM0 time of the last falling edge
 		uart_puts( UART0_BASE_PTR, ", falling = " );
-		printuint( buf, 32, down );
+		printuint( buf, 32, falling );
 		uart_puts( UART0_BASE_PTR, buf );
 
 		uart_puts( UART0_BASE_PTR, "\n" );
