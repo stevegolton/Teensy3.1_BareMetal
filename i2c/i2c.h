@@ -26,7 +26,7 @@
 #include <stdint.h>
 
 /* Most Kinetis devices have only one I2C module, but for those that have more, set the number of devices here. */
-#define I2C_NUMBER_OF_DEVICES 2
+#define I2C_NUMBER_OF_DEVICES 1
 
 /* Define this if you have a Kinetis L device with the 1N96F mask. It enables a workaround for issue 6070: I2C: Repeat
    start cannot be generated if the I2Cx_F[MULT] field is set to a non-zero value. */

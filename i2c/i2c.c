@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include "i2c.h"
-
-#include "MK20D7.h"
+#include "common.h"
+#include "string.h"
 
 /* These are here for readability and correspond to bit 0 of the address byte. */
 #define I2C_WRITING 0
@@ -31,6 +31,30 @@
 
 /* Pointer to the base of our I2C device's memory address */
 static I2C_MemMapPtr i2c_base_ptrs[] = I2C_BASE_PTRS;
+
+static void uart_putchar( UART_MemMapPtr channel, char ch )
+{
+	/* Wait until space is available in the FIFO */
+	while(!(UART_S1_REG(channel) & UART_S1_TDRE_MASK));
+
+	/* Send the character */
+	UART_D_REG(channel) = (uint8_t)ch;
+}
+
+/**
+ * @brief		Put a string into the tx buffer.
+ * @param[in]	channel		UART module's base register pointer.
+ * @param[in]	ch			Characters to send.
+ */
+static void uart_puts( UART_MemMapPtr channel, char *s )
+{
+	int i;
+
+	for ( i = 0; i < strlen( s ); i++ )
+	{
+		uart_putchar( channel, s[i] );
+	}
+}
 
 /* Some local metadata about the channels */
 volatile I2C_Channel i2c_channels[I2C_NUMBER_OF_DEVICES];
@@ -74,8 +98,11 @@ int32_t i2c_send_sequence( uint32_t channel_number,
 	int32_t result = 0;
 	uint8_t status;
 
-	if(channel->status == I2C_BUSY) {
-	return -1;
+	uart_puts( UART0_BASE_PTR, "Setting up I2C...\r\n" );
+
+	if ( channel->status == I2C_BUSY )
+	{
+		return -1;
 	}
 
 	channel->sequence = sequence;
@@ -104,16 +131,22 @@ int32_t i2c_send_sequence( uint32_t channel_number,
 	/* Write the first (address) byte. */
 	i2c->D = *channel->sequence++;
 
+	//uart_puts( UART0_BASE_PTR, "Success\r\n" );
+
 	return result;                /* Everything is OK. */
 
 i2c_send_sequence_cleanup:
 	i2c->C1 &= ~(I2C_C1_IICIE_MASK | I2C_C1_MST_MASK | I2C_C1_TX_MASK);
 	channel->status = I2C_ERROR;
+
+	//uart_puts( UART0_BASE_PTR, "Error\r\n" );
+
 	return result;
 }
 
 
-void I2C0_IRQHandler(void) {
+void I2C0_IRQHandler( void )
+{
   volatile I2C_Channel* channel;
   I2C_MemMapPtr i2c;
   uint8_t channel_number;

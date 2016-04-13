@@ -1,10 +1,12 @@
 /**
- * Example of a polling UART implementation. This example simply echos back any
- * characters it receives on UART0.
+ * Example using the I2C bus as master - interrupt driven implementation.
+ * This example also sets up the uart and prints debugging to it.
  *
  * Teensy3.1 Pinouts:
- * Rx = pin 0 (PTB16)
- * Tx = pin 1 (PTB17)
+ * I2C SCL = pin 19 (PTB2)
+ * I2C SDA = pin 20 (PTB3)
+ * UART Rx = pin 0 (PTB16)
+ * UART Tx = pin 1 (PTB17)
  */
 
 #include "common.h"
@@ -104,7 +106,7 @@ char uart_getchar( UART_MemMapPtr channel )
  * @param[in]	channel		UART module's base register pointer.
  * @param[in]	ch			Character to send.
  */
-void uart_putchar( UART_MemMapPtr channel, char ch )
+static void uart_putchar( UART_MemMapPtr channel, char ch )
 {
 	/* Wait until space is available in the FIFO */
 	while(!(UART_S1_REG(channel) & UART_S1_TDRE_MASK));
@@ -113,11 +115,38 @@ void uart_putchar( UART_MemMapPtr channel, char ch )
 	UART_D_REG(channel) = (uint8_t)ch;
 }
 
+/**
+ * @brief		Put a string into the tx buffer.
+ * @param[in]	channel		UART module's base register pointer.
+ * @param[in]	ch			Characters to send.
+ */
+static void uart_puts( UART_MemMapPtr channel, char *s )
+{
+	int i;
+
+	for ( i = 0; i < strlen( s ); i++ )
+	{
+		uart_putchar( channel, s[i] );
+	}
+}
+
 void my_callback(void *data)
 {
 	/* This callback function gets called once the sequence has been processed. Note that this gets called from an ISR, so
 	   it should do as little as possible. */
+
+	uart_puts( UART0_BASE_PTR, "Callback called...\r\n" );
 }
+
+#if 0
+void I2C0_IRQHandler( void )
+{
+	if( I2C0_BASE_PTR->S & I2C_S_IICIF_MASK )
+	{
+		I2C0_BASE_PTR->S |= I2C_S_IICIF_MASK; /* Acknowledge the interrupt request. */
+	}
+}
+#endif
 
 /**
 ** @brief		Entry point to the program.
@@ -160,11 +189,10 @@ int main( void )
 	SIM_SCGC4 |= SIM_SCGC4_I2C0_MASK;
 	SIM_SCGC5 |= SIM_SCGC5_PORTB_MASK;
 
-	PORTB_PCR0 = PORT_PCR_MUX(0x02) | PORT_PCR_ODE_MASK;
-	PORTB_PCR1 = PORT_PCR_MUX(0x02) | PORT_PCR_ODE_MASK;
+	PORTB_PCR2 = PORT_PCR_MUX(0x02) | PORT_PCR_ODE_MASK;
+	PORTB_PCR3 = PORT_PCR_MUX(0x02) | PORT_PCR_ODE_MASK;
 
 	status = i2c_init( 0, 0x01, 0x20 );
-	status = i2c_send_sequence(0, init_sequence, 5, &device_id, my_callback, (void*)0x1234);
 
 	// Startup blink
 	for ( idx = 0; idx < 3; idx++ )
@@ -177,6 +205,9 @@ int main( void )
 		GPIOC_PCOR = ( 1 << 5 );
 		dumbdelay_ms( 50 );
 	}
+
+	uart_puts( UART0_BASE_PTR, "Trying some I2C...\r\n" );
+	status = i2c_send_sequence( 0, init_sequence, 5, &device_id, my_callback, (void*)0x1234 );
 
 	// Receive characters from the UART and echo back to the sender
 	for ( ;; )
