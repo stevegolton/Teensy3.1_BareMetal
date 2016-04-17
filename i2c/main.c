@@ -182,25 +182,6 @@ int printuint( char *buf, int maxlen, unsigned int input )
 	return len;
 }
 
-static bool flag = false;
-
-void my_callback_from_ISR(void *data)
-{
-	/* This callback function gets called once the sequence has been processed. Note that this gets called from an ISR, so
-	   it should do as little as possible. */
-	flag = true;
-}
-
-#if 0
-void I2C0_IRQHandler( void )
-{
-	if( I2C0_BASE_PTR->S & I2C_S_IICIF_MASK )
-	{
-		I2C0_BASE_PTR->S |= I2C_S_IICIF_MASK; /* Acknowledge the interrupt request. */
-	}
-}
-#endif
-
 // I2C addresses
 #define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
 #define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
@@ -307,15 +288,8 @@ int main( void )
 	char data;
 	uint32_t status;
 
-	/* This sequence defines the following process
-	 * Write WHO_AM_I_G to device LSM9DS0_G
-	 * Restart
-	 * Read 1 byte from the device LSM9DS0_G
-	 */
-	uint16_t init_sequence_g[] = { ( LSM9DS0_G << 1 ) | I2C_WRITING, WHO_AM_I_G, I2C_RESTART, ( LSM9DS0_G << 1 ) | I2C_READING, I2C_READ };
-	uint16_t init_sequence_xm[] = { ( LSM9DS0_XM << 1 ) | I2C_WRITING, WHO_AM_I_XM, I2C_RESTART, ( LSM9DS0_XM << 1 ) | I2C_READING, I2C_READ };
 
-	uint8_t device_id = 0;        /* will contain the device id after sequence has been processed */
+	uint8_t checkbyte = 0;        /* will contain the device id after sequence has been processed */
 	char buf[16];
 
 	// Configure PTC5 to option 1, as GPIOLED is on PC5 (pin 13), config as GPIO (alt = 1)
@@ -353,61 +327,52 @@ int main( void )
 
 	status = i2c_init( 0, 0x01, 0x20 );
 
-	// Startup blink
-	for ( idx = 0; idx < 3; idx++ )
+	if ( -1 != status )
 	{
-		// Set LED
-		GPIOC_PSOR = ( 1 << 5 );
-		dumbdelay_ms( 50 );
+		// Startup blink
+		for ( idx = 0; idx < 3; idx++ )
+		{
+			// Set LED
+			GPIOC_PSOR = ( 1 << 5 );
+			dumbdelay_ms( 50 );
 
-		// Clear LED
-		GPIOC_PCOR = ( 1 << 5 );
-		dumbdelay_ms( 50 );
-	}
+			// Clear LED
+			GPIOC_PCOR = ( 1 << 5 );
+			dumbdelay_ms( 50 );
+		}
 
-	uart_puts( UART0_BASE_PTR, "I2C module initialized OK ... reading whoami from the gyro module\r\n" );
-	status = i2c_send_sequence( 0, init_sequence_g, 5, &device_id, my_callback_from_ISR, (void*)0x1234 );
+		uart_puts( UART0_BASE_PTR, "I2C module initialized OK, reading whoami bytes from the LSM9DS0\r\n" );
 
-	if ( -1 == status )
-	{
-		uart_puts( UART0_BASE_PTR, "error\r\n" );
-		while(1);
-	}
-	else
-	{
-		uart_puts( UART0_BASE_PTR, "success\r\n" );
-	}
+		/* Read WHO_AM_I_G from LSM9DS0_G */
+		i2c_read_byte( 0, LSM9DS0_G, WHO_AM_I_G, &checkbyte );
 
-	/* Spin 'till done */
-	while( false == flag );
+		printuint( buf, 16, checkbyte );
+		uart_puts( UART0_BASE_PTR, "Checkbyte = " );
+		uart_puts( UART0_BASE_PTR, buf );
+		uart_puts( UART0_BASE_PTR, "\r\n" );
 
-	uart_puts( UART0_BASE_PTR, "Finished I2C Txn\r\n" );
-	printuint( buf, 16, device_id );
-	uart_puts( UART0_BASE_PTR, "Device ID = " );
-	uart_puts( UART0_BASE_PTR, buf );
-	uart_puts( UART0_BASE_PTR, "\r\n" );
+		/* Read WHO_AM_I_XM from LSM9DS0_XM */
+		i2c_read_byte( 0, LSM9DS0_XM, WHO_AM_I_XM, &checkbyte );
 
-	uart_puts( UART0_BASE_PTR, "I2C module initialized OK ... reading whoami from the xm module\r\n" );
-	status = i2c_send_sequence( 0, init_sequence_xm, 5, &device_id, my_callback_from_ISR, (void*)0x1234 );
-
-	if ( -1 == status )
-	{
-		uart_puts( UART0_BASE_PTR, "error\r\n" );
-		while(1);
+		printuint( buf, 16, checkbyte );
+		uart_puts( UART0_BASE_PTR, "Checkbyte = " );
+		uart_puts( UART0_BASE_PTR, buf );
+		uart_puts( UART0_BASE_PTR, "\r\n" );
 	}
 	else
 	{
-		uart_puts( UART0_BASE_PTR, "success\r\n" );
+		// Startup blink
+		for ( ; ; )
+		{
+			// Set LED
+			GPIOC_PSOR = ( 1 << 5 );
+			dumbdelay_ms( 200 );
+
+			// Clear LED
+			GPIOC_PCOR = ( 1 << 5 );
+			dumbdelay_ms( 200 );
+		}
 	}
-
-	/* Spin 'till done */
-	while( false == flag );
-
-	uart_puts( UART0_BASE_PTR, "Finished I2C Txn\r\n" );
-	printuint( buf, 16, device_id );
-	uart_puts( UART0_BASE_PTR, "Device ID = " );
-	uart_puts( UART0_BASE_PTR, buf );
-	uart_puts( UART0_BASE_PTR, "\r\n" );
 
 	// Receive characters from the UART and echo back to the sender
 	for ( ;; )

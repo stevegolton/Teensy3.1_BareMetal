@@ -21,6 +21,7 @@
 */
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "i2c.h"
 #include "common.h"
 #include "string.h"
@@ -172,6 +173,34 @@ int32_t i2c_send_sequence( uint32_t channel_number,
 	}
 
 	return 0;
+}
+
+static bool complete_flag = false;
+
+void my_callback_from_ISR(void *data)
+{
+	/* This callback function gets called once the sequence has been processed. Note that this gets called from an ISR, so
+	   it should do as little as possible. */
+	complete_flag = true;
+}
+
+int i2c_read_byte( const uint32_t channel_number,
+				   const uint8_t device,
+				   const uint8_t addr,
+				   const uint8_t *data )
+{
+	uint32_t status;
+	uint16_t init_sequence[] = { ( device << 1 ) | I2C_WRITING, addr, I2C_RESTART, ( device << 1 ) | I2C_READING, I2C_READ };
+	//uint8_t data = 0;        /* will contain the device id after sequence has been processed */
+
+	complete_flag = false;
+
+	status = i2c_send_sequence( channel_number, init_sequence, 5, data, my_callback_from_ISR, (void*)0x1234 );
+
+	/* Block until the I2C transaction has completed */
+	while ( false == complete_flag );
+
+	return status;
 }
 
 void I2C0_IRQHandler( void )

@@ -87,6 +87,14 @@ uint32_t i2c_init(uint8_t i2c_number, uint8_t mult, uint8_t icr);
 int32_t i2c_send_sequence(uint32_t channel_number, uint16_t *sequence, uint32_t sequence_length, uint8_t *received_data,
 						  void (*callback_fn)(void*), void *user_data);
 
+/**
+ * Performs a blocking read of a single byte.
+ */
+int i2c_read_byte( const uint32_t channel_number,
+				   const uint8_t device,
+				   const uint8_t addr,
+				   const uint8_t *data );
+
 #define I2C_RESTART 1<<8
 #define I2C_READ    2<<8
 
