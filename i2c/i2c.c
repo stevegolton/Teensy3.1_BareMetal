@@ -25,10 +25,6 @@
 #include "common.h"
 #include "string.h"
 
-/* These are here for readability and correspond to bit 0 of the address byte. */
-#define I2C_WRITING 0
-#define I2C_READING 1
-
 /* Pointer to the base of our I2C device's memory address */
 static I2C_MemMapPtr i2c_base_ptrs[] = I2C_BASE_PTRS;
 
@@ -54,6 +50,50 @@ static void uart_puts( UART_MemMapPtr channel, char *s )
 	{
 		uart_putchar( channel, s[i] );
 	}
+}
+
+static int printuint( char *buf, int maxlen, unsigned int input )
+{
+	int idx, len;
+	unsigned int copy = input;
+
+	// If 0 just put a 0
+	if ( input == 0 )
+	{
+		if ( maxlen < 2 ) return 0;
+
+		buf[0] = '0';
+		buf[1] = 0;
+		return 2;
+	}
+
+	// Work out how long in decimal characters our number is going to be
+	len = 0;
+	while ( copy > 0 )
+	{
+		copy /= 10;
+		len++;
+	}
+
+	// Get out if we are too long
+	if ( len >= maxlen ) return 0;
+
+	// Stick a NULL at the end
+	buf[len] = 0;
+
+	// Copy off the index of the last character in our array and increment the
+	// length to account for the final NULL character
+	idx = len - 1;
+	len++;
+
+	// Write out the number backwards into the buffer
+	while ( input > 0 )
+	{
+		buf[idx--] = '0' + ( input % 10 );
+		input /= 10;
+	}
+
+	return len;
 }
 
 /* Some local metadata about the channels */
@@ -95,16 +135,13 @@ int32_t i2c_send_sequence( uint32_t channel_number,
 {
 	volatile I2C_Channel *channel = &(i2c_channels[channel_number]);
 	I2C_MemMapPtr i2c = i2c_base_ptrs[channel_number];
-	int32_t result = 0;
-	uint8_t status;
-
-	uart_puts( UART0_BASE_PTR, "Setting up I2C...\r\n" );
 
 	if ( channel->status == I2C_BUSY )
 	{
 		return -1;
 	}
 
+	/* reads_ahead does not need to be initialised .. TODO Why? */
 	channel->sequence = sequence;
 	channel->sequence_end = sequence + sequence_length;
 	channel->received_data = received_data;
@@ -113,189 +150,220 @@ int32_t i2c_send_sequence( uint32_t channel_number,
 	channel->callback_fn = callback_fn;
 	channel->user_data = user_data;
 
-	/* reads_ahead does not need to be initialized */
-
 	i2c->S |= I2C_S_IICIF_MASK; /* Acknowledge the interrupt request, just in case */
 	i2c->C1 = (I2C_C1_IICEN_MASK | I2C_C1_IICIE_MASK);
 
 	/* Generate a start condition and prepare for transmitting. */
 	i2c->C1 |= (I2C_C1_MST_MASK | I2C_C1_TX_MASK);
 
-	status = i2c->S;
-	if( status & I2C_S_ARBL_MASK )
+	/* Check status register to see if arbitration has worked */
+	if( i2c->S & I2C_S_ARBL_MASK )
 	{
-		result = -1;
-		goto i2c_send_sequence_cleanup;
+		/* Error, send sequence cleanup */
+		i2c->C1 &= ~(I2C_C1_IICIE_MASK | I2C_C1_MST_MASK | I2C_C1_TX_MASK);
+		channel->status = I2C_ERROR;
+
+		return -1;
+	}
+	else
+	{
+		/* Success, write the first (address) byte. */
+		i2c->D = *channel->sequence++;
 	}
 
-	/* Write the first (address) byte. */
-	i2c->D = *channel->sequence++;
-
-	//uart_puts( UART0_BASE_PTR, "Success\r\n" );
-
-	return result;                /* Everything is OK. */
-
-i2c_send_sequence_cleanup:
-	i2c->C1 &= ~(I2C_C1_IICIE_MASK | I2C_C1_MST_MASK | I2C_C1_TX_MASK);
-	channel->status = I2C_ERROR;
-
-	//uart_puts( UART0_BASE_PTR, "Error\r\n" );
-
-	return result;
+	return 0;
 }
-
 
 void I2C0_IRQHandler( void )
 {
-  volatile I2C_Channel* channel;
-  I2C_MemMapPtr i2c;
-  uint8_t channel_number;
-  uint16_t element;
-  uint8_t status;
+	volatile I2C_Channel* channel;
+	I2C_MemMapPtr i2c;
+	uint8_t channel_number;
+	uint16_t element;
+	uint8_t status;
+	char buf[16];
 
 #ifdef ERRATA_1N96F_WORKAROUND
-  uint8_t f_register;
+	uint8_t f_register;
 #endif
 
-  /* Loop over I2C modules. For the most common use case where I2C_NUMBER_OF_DEVICES == 1, the compiler should optimize
-	 this loop out entirely. */
-  for(channel_number = 0; channel_number < I2C_NUMBER_OF_DEVICES; channel_number++) {
-	channel = &i2c_channels[channel_number];
-	i2c = (I2C_MemMapPtr)i2c_base_ptrs[channel_number];
+	/* Loop over I2C modules. For the most common use case where I2C_NUMBER_OF_DEVICES == 1, the compiler should optimize
+	** this loop out entirely. */
+	for ( channel_number = 0; channel_number < I2C_NUMBER_OF_DEVICES; channel_number++ )
+	{
+		channel = &i2c_channels[channel_number];
+		i2c = (I2C_MemMapPtr)i2c_base_ptrs[channel_number];
 
-	status = i2c->S;
+		//uart_puts( UART0_BASE_PTR, "ISR" );
+		//printuint( buf, 16, *channel->sequence );
+		//uart_puts( UART0_BASE_PTR, buf );
+		//uart_puts( UART0_BASE_PTR, "\r\n" );
 
-	/* Was the interrupt request from the current I2C module? */
-	if(!(status & I2C_S_IICIF_MASK)) {
-	  continue;                 /* If not, proceed to the next I2C module. */
-	}
+		status = i2c->S;
 
-	i2c->S |= I2C_S_IICIF_MASK; /* Acknowledge the interrupt request. */
-
-	if(status & I2C_S_ARBL_MASK) {
-	  i2c->S |= I2C_S_ARBL_MASK;
-	  goto i2c_isr_error;
-	}
-
-	if(channel->txrx == I2C_READING) {
-
-	  switch(channel->reads_ahead) {
-	  case 0:
-		/* All the reads in the sequence have been processed (but note that the final data register read still needs to
-		   be done below! Now, the next thing is either a restart or the end of a sequence. In any case, we need to
-		   switch to TX mode, either to generate a repeated start condition, or to avoid triggering another I2C read
-		   when reading the contents of the data register. */
-		i2c->C1 |= I2C_C1_TX_MASK;
-
-		/* Perform the final data register read now that it's safe to do so. */
-		*channel->received_data++ = i2c->D;
-
-		/* Do we have a repeated start? */
-		if((channel->sequence < channel->sequence_end) && (*channel->sequence == I2C_RESTART)) {
-
-		  /* Issue 6070: I2C: Repeat start cannot be generated if the I2Cx_F[MULT] field is set to a non-zero value. */
-#ifdef ERRATA_1N96F_WORKAROUND
-		  f_register = i2c->F(i2c_ptr);
-		  i2c->F = (f_register & 0x3f); /* Zero out the MULT bits (topmost 2 bits). */
-#endif
-
-		  i2c->C1 |= I2C_C1_RSTA_MASK; /* Generate a repeated start condition. */
-
-#ifdef ERRATA_1N96F_WORKAROUND
-		  i2c->F = f_register;
-#endif
-		  /* A restart is processed immediately, so we need to get a new element from our sequence. This is safe, because
-			 a sequence cannot end with a RESTART: there has to be something after it. Note that the only thing that can
-			 come after a restart is an address write. */
-		  channel->txrx = I2C_WRITING;
-		  channel->sequence++;
-		  element = *channel->sequence;
-		  i2c->D = element;
-		} else {
-		  goto i2c_isr_stop;
+		/* Was the interrupt request from the current I2C module? */
+		if( !( status & I2C_S_IICIF_MASK ) )
+		{
+			continue;                 /* If not, proceed to the next I2C module. */
 		}
-		break;
 
-	  case 1:
-		i2c->C1 |= I2C_C1_TXAK_MASK; /* do not ACK the final read */
-		*channel->received_data++ = i2c->D;
-		break;
+		i2c->S |= I2C_S_IICIF_MASK; /* Acknowledge the interrupt request. */
 
-	  default:
-		*channel->received_data++ = i2c->D;
-		break;
-	  }
+		if ( status & I2C_S_ARBL_MASK )
+		{
+			i2c->S |= I2C_S_ARBL_MASK;
+			goto i2c_isr_error;
+		}
 
-	  channel->reads_ahead--;
+		if( channel->txrx == I2C_READING )
+		{
+			switch( channel->reads_ahead )
+			{
+				case 0:
+				{
+					/* All the reads in the sequence have been processed (but note that the final data register read still needs to
+					   be done below! Now, the next thing is either a restart or the end of a sequence. In any case, we need to
+					   switch to TX mode, either to generate a repeated start condition, or to avoid triggering another I2C read
+					   when reading the contents of the data register. */
+					i2c->C1 |= I2C_C1_TX_MASK;
 
-	} else {                    /* channel->txrx == I2C_WRITING */
-	  /* First, check if we are at the end of a sequence. */
-	  if(channel->sequence == channel->sequence_end) {
-		goto i2c_isr_stop;
-	  }
+					/* Perform the final data register read now that it's safe to do so. */
+					*channel->received_data++ = i2c->D;
 
-	  if(status & I2C_S_RXAK_MASK) {
-		/* We received a NACK. Generate a STOP condition and abort. */
-		goto i2c_isr_error;
-	  }
+					/* Do we have a repeated start? */
+					if ( ( channel->sequence < channel->sequence_end ) && ( *channel->sequence == I2C_RESTART ) )
+					{
 
-	  /* check next thing in our sequence */
-	  element = *channel->sequence;
+						/* Issue 6070: I2C: Repeat start cannot be generated if the I2Cx_F[MULT] field is set to a non-zero value. */
+		#ifdef ERRATA_1N96F_WORKAROUND
+						f_register = i2c->F(i2c_ptr);
+						i2c->F = (f_register & 0x3f); /* Zero out the MULT bits (topmost 2 bits). */
+		#endif
 
-	  if(element == I2C_RESTART) {
-		/* Do we have a restart? If so, generate repeated start and make sure TX is on. */
-		i2c->C1 |= I2C_C1_RSTA_MASK | I2C_C1_TX_MASK;
-		/* A restart is processed immediately, so we need to get a new element from our sequence. This is safe, because a
-		   sequence cannot end with a RESTART: there has to be something after it. */
+						i2c->C1 |= I2C_C1_RSTA_MASK; /* Generate a repeated start condition. */
+
+		#ifdef ERRATA_1N96F_WORKAROUND
+						i2c->F = f_register;
+		#endif
+						/* A restart is processed immediately, so we need to get a new element from our sequence. This is safe, because
+						 a sequence cannot end with a RESTART: there has to be something after it. Note that the only thing that can
+						 come after a restart is an address write. */
+						channel->txrx = I2C_WRITING;
+						channel->sequence++;
+						element = *channel->sequence;
+						i2c->D = element;
+					}
+					else
+					{
+						goto i2c_isr_stop;
+					}
+				}
+				break;
+
+				case 1:
+				{
+					i2c->C1 |= I2C_C1_TXAK_MASK; /* do not ACK the final read */
+					*channel->received_data++ = i2c->D;
+				}
+				break;
+
+				default:
+				{
+					*channel->received_data++ = i2c->D;
+				}
+				break;
+			}
+
+			channel->reads_ahead--;
+
+		}
+		else
+		{
+			/* channel->txrx == I2C_WRITING */
+			/* First, check if we are at the end of a sequence. */
+			if ( channel->sequence == channel->sequence_end )
+			{
+				goto i2c_isr_stop;
+			}
+
+			if ( status & I2C_S_RXAK_MASK )
+			{
+				/* We received a NACK. Generate a STOP condition and abort. */
+				goto i2c_isr_error;
+			}
+
+			/* check next thing in our sequence */
+			element = *channel->sequence;
+
+			if ( element == I2C_RESTART )
+			{
+				/* Do we have a restart? If so, generate repeated start and make sure TX is on. */
+				i2c->C1 |= I2C_C1_RSTA_MASK | I2C_C1_TX_MASK;
+
+				/* A restart is processed immediately, so we need to get a new element from our sequence. This is safe, because a
+				sequence cannot end with a RESTART: there has to be something after it. */
+				channel->sequence++;
+				element = *channel->sequence;
+
+				/* Note that the only thing that can come after a restart is a write. */
+				i2c->D = element;
+			}
+			else
+			{
+				if ( element == I2C_READ )
+				{
+					channel->txrx = I2C_READING;
+					/* How many reads do we have ahead of us (not including this one)? For reads we need to know the segment length
+					to correctly plan NACK transmissions. */
+					channel->reads_ahead = 1;        /* We already know about one read */
+					while ( ( ( channel->sequence + channel->reads_ahead ) < channel->sequence_end ) &&
+							(*(channel->sequence + channel->reads_ahead) == I2C_READ))
+					{
+						channel->reads_ahead++;
+					}
+					i2c->C1 &= ~I2C_C1_TX_MASK; /* Switch to RX mode. */
+
+					if ( channel->reads_ahead == 1 )
+					{
+						i2c->C1 |= I2C_C1_TXAK_MASK; /* do not ACK the final read */
+					}
+					else
+					{
+						i2c->C1 &= ~(I2C_C1_TXAK_MASK);  /* ACK all but the final read */
+					}
+
+					/* Dummy read comes first, note that this is not valid data! This only triggers a read, actual data will come
+					in the next interrupt call and overwrite this. This is why we do not increment the received_data
+					pointer. */
+					*channel->received_data = i2c->D;
+					channel->reads_ahead--;
+				}
+				else
+				{
+					/* Not a restart, not a read, must be a write. */
+					i2c->D = element;
+				}
+			}
+		}
+
 		channel->sequence++;
-		element = *channel->sequence;
-		/* Note that the only thing that can come after a restart is a write. */
-		i2c->D = element;
-	  } else {
-		if(element == I2C_READ) {
-		  channel->txrx = I2C_READING;
-		  /* How many reads do we have ahead of us (not including this one)? For reads we need to know the segment length
-			 to correctly plan NACK transmissions. */
-		  channel->reads_ahead = 1;        /* We already know about one read */
-		  while(((channel->sequence + channel->reads_ahead) < channel->sequence_end) &&
-				(*(channel->sequence + channel->reads_ahead) == I2C_READ)) {
-			channel->reads_ahead++;
-		  }
-		  i2c->C1 &= ~I2C_C1_TX_MASK; /* Switch to RX mode. */
+		continue;
 
-		  if(channel->reads_ahead == 1) {
-			i2c->C1 |= I2C_C1_TXAK_MASK; /* do not ACK the final read */
-		  } else {
-			i2c->C1 &= ~(I2C_C1_TXAK_MASK);  /* ACK all but the final read */
-		  }
-		  /* Dummy read comes first, note that this is not valid data! This only triggers a read, actual data will come
-			 in the next interrupt call and overwrite this. This is why we do not increment the received_data
-			 pointer. */
-		  *channel->received_data = i2c->D;
-		  channel->reads_ahead--;
-		} else {
-		  /* Not a restart, not a read, must be a write. */
-		  i2c->D = element;
+i2c_isr_stop:
+		/* Generate STOP (set MST=0), switch to RX mode, and disable further interrupts. */
+		i2c->C1 &= ~(I2C_C1_MST_MASK | I2C_C1_IICIE_MASK | I2C_C1_TXAK_MASK);
+		channel->status = I2C_AVAILABLE;
+
+		/* Call the user-supplied callback function upon successful completion (if it exists). */
+		if ( NULL != channel->callback_fn )
+		{
+			(*channel->callback_fn)( channel->user_data );
 		}
-	  }
+		continue;
+
+i2c_isr_error:
+		i2c->C1 &= ~(I2C_C1_MST_MASK | I2C_C1_IICIE_MASK); /* Generate STOP and disable further interrupts. */
+		channel->status = I2C_ERROR;
+		continue;
 	}
-
-	channel->sequence++;
-	continue;
-
-  i2c_isr_stop:
-	/* Generate STOP (set MST=0), switch to RX mode, and disable further interrupts. */
-	i2c->C1 &= ~(I2C_C1_MST_MASK | I2C_C1_IICIE_MASK | I2C_C1_TXAK_MASK);
-	channel->status = I2C_AVAILABLE;
-	/* Call the user-supplied callback function upon successful completion (if it exists). */
-	if(channel->callback_fn) {
-	  (*channel->callback_fn)(channel->user_data);
-	}
-	continue;
-
-  i2c_isr_error:
-	i2c->C1 &= ~(I2C_C1_MST_MASK | I2C_C1_IICIE_MASK); /* Generate STOP and disable further interrupts. */
-	channel->status = I2C_ERROR;
-	continue;
-  }
 }

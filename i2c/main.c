@@ -12,6 +12,7 @@
 #include "common.h"
 #include "string.h"
 #include "i2c.h"
+#include <stdbool.h>
 
 /**
  * @brief		Approximate delay using a simple loop.
@@ -130,12 +131,64 @@ static void uart_puts( UART_MemMapPtr channel, char *s )
 	}
 }
 
-void my_callback(void *data)
+/**
+ * Prints an unsigned int to a string (decimal) without using sprintf/malloc.
+ *
+ * @param[in]	buf		Character buffer to write the number out to.
+ * @param[in]	maxlen	Max length of the buffer - ensures we dont write off the end.
+ * @param[in]	input	The number to write out.
+ */
+int printuint( char *buf, int maxlen, unsigned int input )
+{
+	int idx, len;
+	unsigned int copy = input;
+
+	// If 0 just put a 0
+	if ( input == 0 )
+	{
+		if ( maxlen < 2 ) return 0;
+
+		buf[0] = '0';
+		buf[1] = 0;
+		return 2;
+	}
+
+	// Work out how long in decimal characters our number is going to be
+	len = 0;
+	while ( copy > 0 )
+	{
+		copy /= 10;
+		len++;
+	}
+
+	// Get out if we are too long
+	if ( len >= maxlen ) return 0;
+
+	// Stick a NULL at the end
+	buf[len] = 0;
+
+	// Copy off the index of the last character in our array and increment the
+	// length to account for the final NULL character
+	idx = len - 1;
+	len++;
+
+	// Write out the number backwards into the buffer
+	while ( input > 0 )
+	{
+		buf[idx--] = '0' + ( input % 10 );
+		input /= 10;
+	}
+
+	return len;
+}
+
+static bool flag = false;
+
+void my_callback_from_ISR(void *data)
 {
 	/* This callback function gets called once the sequence has been processed. Note that this gets called from an ISR, so
 	   it should do as little as possible. */
-
-	uart_puts( UART0_BASE_PTR, "Callback called...\r\n" );
+	flag = true;
 }
 
 #if 0
@@ -148,6 +201,103 @@ void I2C0_IRQHandler( void )
 }
 #endif
 
+// I2C addresses
+#define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
+#define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
+
+#define WHOAMI_G_RESPONSE	0xD4
+#define WHOAMI_XM_RESPONSE	0x49
+
+
+////////////////////////////
+// LSM9DS0 Gyro Registers //
+////////////////////////////
+#define WHO_AM_I_G			0x0F
+#define CTRL_REG1_G			0x20
+#define CTRL_REG2_G			0x21
+#define CTRL_REG3_G			0x22
+#define CTRL_REG4_G			0x23
+#define CTRL_REG5_G			0x24
+#define REFERENCE_G			0x25
+#define STATUS_REG_G		0x27
+#define OUT_X_L_G			0x28
+#define OUT_X_H_G			0x29
+#define OUT_Y_L_G			0x2A
+#define OUT_Y_H_G			0x2B
+#define OUT_Z_L_G			0x2C
+#define OUT_Z_H_G			0x2D
+#define FIFO_CTRL_REG_G		0x2E
+#define FIFO_SRC_REG_G		0x2F
+#define INT1_CFG_G			0x30
+#define INT1_SRC_G			0x31
+#define INT1_THS_XH_G		0x32
+#define INT1_THS_XL_G		0x33
+#define INT1_THS_YH_G		0x34
+#define INT1_THS_YL_G		0x35
+#define INT1_THS_ZH_G		0x36
+#define INT1_THS_ZL_G		0x37
+#define INT1_DURATION_G		0x38
+
+//////////////////////////////////////////
+// LSM9DS0 Accel/Magneto (XM) Registers //
+//////////////////////////////////////////
+#define OUT_TEMP_L_XM		0x05
+#define OUT_TEMP_H_XM		0x06
+#define STATUS_REG_M		0x07
+#define OUT_X_L_M			0x08
+#define OUT_X_H_M			0x09
+#define OUT_Y_L_M			0x0A
+#define OUT_Y_H_M			0x0B
+#define OUT_Z_L_M			0x0C
+#define OUT_Z_H_M			0x0D
+#define WHO_AM_I_XM			0x0F
+#define INT_CTRL_REG_M		0x12
+#define INT_SRC_REG_M		0x13
+#define INT_THS_L_M			0x14
+#define INT_THS_H_M			0x15
+#define OFFSET_X_L_M		0x16
+#define OFFSET_X_H_M		0x17
+#define OFFSET_Y_L_M		0x18
+#define OFFSET_Y_H_M		0x19
+#define OFFSET_Z_L_M		0x1A
+#define OFFSET_Z_H_M		0x1B
+#define REFERENCE_X			0x1C
+#define REFERENCE_Y			0x1D
+#define REFERENCE_Z			0x1E
+#define CTRL_REG0_XM		0x1F
+#define CTRL_REG1_XM		0x20
+#define CTRL_REG2_XM		0x21
+#define CTRL_REG3_XM		0x22
+#define CTRL_REG4_XM		0x23
+#define CTRL_REG5_XM		0x24
+#define CTRL_REG6_XM		0x25
+#define CTRL_REG7_XM		0x26
+#define STATUS_REG_A		0x27
+#define OUT_X_L_A			0x28
+#define OUT_X_H_A			0x29
+#define OUT_Y_L_A			0x2A
+#define OUT_Y_H_A			0x2B
+#define OUT_Z_L_A			0x2C
+#define OUT_Z_H_A			0x2D
+#define FIFO_CTRL_REG		0x2E
+#define FIFO_SRC_REG		0x2F
+#define INT_GEN_1_REG		0x30
+#define INT_GEN_1_SRC		0x31
+#define INT_GEN_1_THS		0x32
+#define INT_GEN_1_DURATION	0x33
+#define INT_GEN_2_REG		0x34
+#define INT_GEN_2_SRC		0x35
+#define INT_GEN_2_THS		0x36
+#define INT_GEN_2_DURATION	0x37
+#define CLICK_CFG			0x38
+#define CLICK_SRC			0x39
+#define CLICK_THS			0x3A
+#define TIME_LIMIT			0x3B
+#define TIME_LATENCY		0x3C
+#define TIME_WINDOW			0x3D
+#define ACT_THS				0x3E
+#define ACT_DUR				0x3F
+
 /**
 ** @brief		Entry point to the program.
 */
@@ -156,8 +306,17 @@ int main( void )
 	int idx;
 	char data;
 	uint32_t status;
-	uint16_t init_sequence[] = {0x3a, 0x0d, I2C_RESTART, 0x3b, I2C_READ};
+
+	/* This sequence defines the following process
+	 * Write WHO_AM_I_G to device LSM9DS0_G
+	 * Restart
+	 * Read 1 byte from the device LSM9DS0_G
+	 */
+	uint16_t init_sequence_g[] = { ( LSM9DS0_G << 1 ) | I2C_WRITING, WHO_AM_I_G, I2C_RESTART, ( LSM9DS0_G << 1 ) | I2C_READING, I2C_READ };
+	uint16_t init_sequence_xm[] = { ( LSM9DS0_XM << 1 ) | I2C_WRITING, WHO_AM_I_XM, I2C_RESTART, ( LSM9DS0_XM << 1 ) | I2C_READING, I2C_READ };
+
 	uint8_t device_id = 0;        /* will contain the device id after sequence has been processed */
+	char buf[16];
 
 	// Configure PTC5 to option 1, as GPIOLED is on PC5 (pin 13), config as GPIO (alt = 1)
 	PORTC_PCR5 = PORT_PCR_MUX( 0x1 );
@@ -206,8 +365,49 @@ int main( void )
 		dumbdelay_ms( 50 );
 	}
 
-	uart_puts( UART0_BASE_PTR, "Trying some I2C...\r\n" );
-	status = i2c_send_sequence( 0, init_sequence, 5, &device_id, my_callback, (void*)0x1234 );
+	uart_puts( UART0_BASE_PTR, "I2C module initialized OK ... reading whoami from the gyro module\r\n" );
+	status = i2c_send_sequence( 0, init_sequence_g, 5, &device_id, my_callback_from_ISR, (void*)0x1234 );
+
+	if ( -1 == status )
+	{
+		uart_puts( UART0_BASE_PTR, "error\r\n" );
+		while(1);
+	}
+	else
+	{
+		uart_puts( UART0_BASE_PTR, "success\r\n" );
+	}
+
+	/* Spin 'till done */
+	while( false == flag );
+
+	uart_puts( UART0_BASE_PTR, "Finished I2C Txn\r\n" );
+	printuint( buf, 16, device_id );
+	uart_puts( UART0_BASE_PTR, "Device ID = " );
+	uart_puts( UART0_BASE_PTR, buf );
+	uart_puts( UART0_BASE_PTR, "\r\n" );
+
+	uart_puts( UART0_BASE_PTR, "I2C module initialized OK ... reading whoami from the xm module\r\n" );
+	status = i2c_send_sequence( 0, init_sequence_xm, 5, &device_id, my_callback_from_ISR, (void*)0x1234 );
+
+	if ( -1 == status )
+	{
+		uart_puts( UART0_BASE_PTR, "error\r\n" );
+		while(1);
+	}
+	else
+	{
+		uart_puts( UART0_BASE_PTR, "success\r\n" );
+	}
+
+	/* Spin 'till done */
+	while( false == flag );
+
+	uart_puts( UART0_BASE_PTR, "Finished I2C Txn\r\n" );
+	printuint( buf, 16, device_id );
+	uart_puts( UART0_BASE_PTR, "Device ID = " );
+	uart_puts( UART0_BASE_PTR, buf );
+	uart_puts( UART0_BASE_PTR, "\r\n" );
 
 	// Receive characters from the UART and echo back to the sender
 	for ( ;; )

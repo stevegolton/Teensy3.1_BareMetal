@@ -90,4 +90,8 @@ int32_t i2c_send_sequence(uint32_t channel_number, uint16_t *sequence, uint32_t 
 #define I2C_RESTART 1<<8
 #define I2C_READ    2<<8
 
+/* These are here for readability and correspond to bit 0 of the address byte. */
+#define I2C_WRITING 0
+#define I2C_READING 1
+
 #endif /* I2C_H */
