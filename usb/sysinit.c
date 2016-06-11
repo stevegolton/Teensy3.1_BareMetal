@@ -15,6 +15,9 @@
 #include "sysinit.h"
 #include "uart.h"
 
+// We must define main somewhere in our program otherwise the code will not link
+int main( void );
+
 /*
  *  Actual system clock frequencies, as determined by PLL following lock
  *
