@@ -43,3 +43,4 @@ I took the startup code from [Karl Hunt's Bare Metal Teensy3.1 page](http://www.
  - [Karl Hunt's Bare Metal Teensy3.1 page](http://www.seanet.com/~karllunt/bareteensy31.html)
  - [Freescale guide to I2C signalling](https://community.freescale.com/docs/DOC-1034#jive_content_id_Introduction_to_I2C_signaling)
  - [PDF - Application Note: Using the I2C device on Coldfire and Kinetis](http://cache.nxp.com/files/analog/doc/app_note/AN4342.pdf)
+ - [gcc-arm-none-eabi user manual](https://www.mankier.com/1/arm-none-eabi-gcc#Options)
