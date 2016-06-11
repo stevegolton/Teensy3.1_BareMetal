@@ -11,20 +11,19 @@ CPU = cortex-m4
 #  You will also need code for startup (following reset) and
 #  any code needed to get the PLL configured.
 OBJECTS	= main.o \
-	      ../common/sysinit.o \
-	      crt0.o \
-	      \
-	      ../common/freescale/usb_descriptor.o \
-	      ../common/freescale/wdt_kinetis.o \
-	      ../common/fsl_usb_stack_v4.1.1/driver/usb_driver.o \
-	      ../common/fsl_usb_stack_v4.1.1/driver/usbevent.o \
-	      ../common/fsl_usb_stack_v4.1.1/driver/kinetis/usb_dci_kinetis.o \
-	      ../common/fsl_usb_stack_v4.1.1/common/usb_class.o \
-	      ../common/fsl_usb_stack_v4.1.1/common/usb_framework.o \
-	      ../common/fsl_usb_stack_v4.1.1/class/usb_cdc.o \
-	      ../common/fsl_usb_stack_v4.1.1/class/usb_cdc_pstn.o \
-	      ../common/cdc/virtual_com.o \
-
+	sysinit.o \
+	../common/arm_cm4.o \
+	crt0.o \
+	usb_descriptor.o \
+	\
+	usb_stack_4_1_1/driver/usb_driver.o \
+	usb_stack_4_1_1/driver/kinetis/usb_dci_kinetis.o \
+	\
+	usb_stack_4_1_1/class/usb_cdc.o \
+	usb_stack_4_1_1/class/usb_cdc_pstn.o \
+	usb_stack_4_1_1/common/usb_class.o \
+	usb_stack_4_1_1/common/usb_framework.o \
+	
 #  Select the toolchain by providing a path to the top level
 #  directory; this will be the folder that holds the
 #  arm-none-eabi subfolders.
@@ -63,14 +62,13 @@ VPATH = $(TEENSY3X_BASEPATH)/common
 INCDIRS  = -I$(GCC_INC)
 INCDIRS += -I$(TEENSY3X_INC)
 INCDIRS += -I.
-INCDIRS += -I../common/freertos/include
-INCDIRS += -I../common/freertos/portable
-INCDIRS += -I../common/freescale
-INCDIRS += -I../common/fsl_usb_stack_v4.1.1/driver/
-INCDIRS += -I../common/fsl_usb_stack_v4.1.1/driver/kinetis/
-INCDIRS += -I../common/fsl_usb_stack_v4.1.1/common/
-INCDIRS += -I../common/fsl_usb_stack_v4.1.1/class/
-INCDIRS += -I../common/cdc/
+INCDIRS += -Ifreescale
+
+INCDIRS += -Iusb_stack_4_1_1/driver
+INCDIRS += -Iusb_stack_4_1_1/driver/kinetis
+
+INCDIRS += -Iusb_stack_4_1_1/class
+INCDIRS += -Iusb_stack_4_1_1/common
 
 # Name and path to the linker script
 LSCRIPT = $(TEENSY3X_BASEPATH)/../common/Teensy31_flash.ld
