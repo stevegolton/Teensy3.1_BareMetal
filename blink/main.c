@@ -1,6 +1,8 @@
 #include "common.h"
 #include "string.h"
 
+#define BLINK_INTERVAL_MS		(1000)
+
 /**
  * @brief		Delay using a loop.
  * @param[in]	ms		Delay in ms.
@@ -38,8 +40,6 @@ void HardFault_Handler()
 */
 int main( void )
 {
-	int idx;
-
 	// Initialize on board LED
 	PORTC_PCR5 = PORT_PCR_MUX( 0x1 );	// LED is on PC5 (pin 13), config as GPIO (alt = 1)
 	GPIOC_PDDR = ( 1 << 5 );			// make this an output pin
@@ -50,11 +50,11 @@ int main( void )
 	{
 		// Set LED
 		GPIOC_PSOR = ( 1 << 5 );
-		dumbdelay_ms( 500 );
+		dumbdelay_ms( BLINK_INTERVAL_MS );
 
 		// Clear LED
 		GPIOC_PCOR = ( 1 << 5 );
-		dumbdelay_ms( 500 );
+		dumbdelay_ms( BLINK_INTERVAL_MS );
 	}
 
 	// We definitely should never get here, this return is just to keep the
