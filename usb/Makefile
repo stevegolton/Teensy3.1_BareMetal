@@ -1,5 +1,5 @@
 #  Project Name
-PROJECT=blink
+PROJECT=usb
 
 #  Type of CPU/MCU in target hardware
 CPU = cortex-m4
