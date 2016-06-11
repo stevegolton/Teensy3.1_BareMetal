@@ -38,6 +38,9 @@ I took the startup code from [Karl Hunt's Bare Metal Teensy3.1 page](http://www.
  - [PDF - Kinetis K20 User Guide](http://cache.nxp.com/files/32bit/doc/ref_manual/K20P121M100SF2RM.pdf?fpsp=1&WT_TYPE=Reference%20Manuals&WT_VENDOR=FREESCALE&WT_FILE_FORMAT=pdf&WT_ASSET=Documentation&fileExt=.pdf)
  - [PDF - Demonstration software for Kinetis peripheral modules](http://cache.nxp.com/files/32bit/doc/quick_ref_guide/KQRUG.pdf)
  - [PDF - Features of the FlexTimer Module](http://cache.nxp.com/files/32bit/doc/app_note/AN5142.pdf)
- - [Teensy schematic & pin routing](https://www.pjrc.com/teensy/schematic.html)
+ - [Teensy schematic & pin routing](https://www.pjrc.com/teensy/schematic.html) - p233 for multiplexing and pin assignments, p70 for interrupt vectors
  - [Teensy pinouts](https://www.pjrc.com/teensy/pinout.html)
  - [Karl Hunt's Bare Metal Teensy3.1 page](http://www.seanet.com/~karllunt/bareteensy31.html)
+ - [Freescale guide to I2C signalling](https://community.freescale.com/docs/DOC-1034#jive_content_id_Introduction_to_I2C_signaling)
+ - [PDF - Application Note: Using the I2C device on Coldfire and Kinetis](http://cache.nxp.com/files/analog/doc/app_note/AN4342.pdf)
+ - [gcc-arm-none-eabi user manual](https://www.mankier.com/1/arm-none-eabi-gcc#Options)

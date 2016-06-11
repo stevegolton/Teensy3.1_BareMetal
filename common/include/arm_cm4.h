@@ -29,6 +29,10 @@ void set_irq_priority (int, int);
 
   /*!< Macro to disable all interrupts. */
 #define DisableInterrupts asm(" CPSID i");
+
+/*Determines the correct IRQ number from a INT value */
+#define IRQ(N) (N - (1 << ARM_INTERRUPT_LEVEL_BITS))
+
 /***********************************************************************/
 
 
