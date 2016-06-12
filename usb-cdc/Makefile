@@ -15,6 +15,7 @@ OBJECTS	= main.o \
 	../common/arm_cm4.o \
 	crt0.o \
 	usb_descriptor.o \
+	virtual_com.o \
 	\
 	usb_stack_4_1_1/driver/usb_driver.o \
 	usb_stack_4_1_1/driver/kinetis/usb_dci_kinetis.o \
