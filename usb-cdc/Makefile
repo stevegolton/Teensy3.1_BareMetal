@@ -14,17 +14,8 @@ OBJECTS	= main.o \
 	sysinit.o \
 	../common/arm_cm4.o \
 	crt0.o \
-	usb_descriptor.o \
-	virtual_com.o \
-	\
-	usb_stack_4_1_1/driver/usb_driver.o \
-	usb_stack_4_1_1/driver/kinetis/usb_dci_kinetis.o \
-	\
-	usb_stack_4_1_1/class/usb_cdc.o \
-	usb_stack_4_1_1/class/usb_cdc_pstn.o \
-	usb_stack_4_1_1/common/usb_class.o \
-	usb_stack_4_1_1/common/usb_framework.o \
-	
+	usb.o \
+
 #  Select the toolchain by providing a path to the top level
 #  directory; this will be the folder that holds the
 #  arm-none-eabi subfolders.
@@ -63,13 +54,6 @@ VPATH = $(TEENSY3X_BASEPATH)/common
 INCDIRS  = -I$(GCC_INC)
 INCDIRS += -I$(TEENSY3X_INC)
 INCDIRS += -I.
-INCDIRS += -Ifreescale
-
-INCDIRS += -Iusb_stack_4_1_1/driver
-INCDIRS += -Iusb_stack_4_1_1/driver/kinetis
-
-INCDIRS += -Iusb_stack_4_1_1/class
-INCDIRS += -Iusb_stack_4_1_1/common
 
 # Name and path to the linker script
 LSCRIPT = $(TEENSY3X_BASEPATH)/../common/Teensy31_flash.ld

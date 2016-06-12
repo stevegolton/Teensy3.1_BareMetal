@@ -1,9 +1,24 @@
 /* ************************************************************************** **
+** USB virtual COM example (CDC Class)
+**
+** Low level device driver based on kcuzner's code. See:
+** https://github.com/kcuzner/teensy-oscilloscope
+** http://kevincuzner.com/2014/12/12/teensy-3-1-bare-metal-writing-a-usb-driver/
+**
+** CDC class information: http://janaxelson.com/usb_virtual_com_port.htm
+**
+** Useful USB tutorials
+** http://www.usbmadesimple.co.uk/
+** http://janaxelson.com/usb_one_minute.htm
+**
+** ************************************************************************** */
+
+/* ************************************************************************** **
 ** INCLUDES
 ** ************************************************************************** */
 #include "common.h"			// Common MK20D7 definitions
 #include "arm_cm4.h"		// ARM Cortex M4 helper module
-#include "virtual_com.h"
+#include "usb.h"			// Bare metal USB driver
 
 /* ************************************************************************** **
 ** MACROS
@@ -23,7 +38,6 @@
 ** LOCAL FUNCTION PROTOTYPES
 ** ************************************************************************** */
 static inline void DumbDelayMillis( const uint32_t uiTimeoutMillis );
-static void USB_Init( void );
 
 /* ************************************************************************** **
 ** LOCAL VARIABLES
@@ -42,6 +56,7 @@ int main( void )
  */
 /* -------------------------------------------------------------------------- */
 {
+	// Turn off interrupts before setup to avoid race conditions
 	DisableInterrupts
 
 	// Initialize on board LED
@@ -49,19 +64,15 @@ int main( void )
 	GPIOC_PDDR = ( 1 << 5 );			// make this an output pin
 	GPIOC_PCOR = ( 1 << 5 );			// start with LED off
 
-	// Init low level registers for the USB device
-	USB_Init();
+	// Initialise bare metal USB driver
+	USBInit();
 
-	// Initialise virtual comm app
-	TestApp_Init();
-
-	//EnableInterrupts
+	// Enable interrupts for USB to work
+	EnableInterrupts
 
 	// Start blinking
 	for ( ;; )
 	{
-		//TestApp_Task();
-
 #if 0
 		// Set LED
 		LED_ON;
@@ -77,7 +88,7 @@ int main( void )
 }
 
 /* ************************************************************************** */
-void HardFault_Handler()
+void HardFault_Handler( void )
 /**
  * @brief		Called by the system when a hard fault is encountered.
  * 				Flashes our led at 20hz indefinitely.
@@ -128,47 +139,5 @@ static inline void DumbDelayMillis( const uint32_t uiTimeoutMillis )
 	for ( uiIndex = 0; uiIndex < uiLoops; uiIndex++ );
 
 	return;
-}
-
-/*****************************************************************************
- *
- *    @name     USB_Init
- *
- *    @brief    This function Initializes USB module
- *
- *    @param    None
- *
- *    @return   None
- *
- ***************************************************************************/
-static void USB_Init( void )
-{
-	//1: Select clock source
-	SIM_SOPT2 |= SIM_SOPT2_USBSRC_MASK | SIM_SOPT2_PLLFLLSEL_MASK; //we use MCGPLLCLK divided by USB fractional divider
-	SIM_CLKDIV2 = SIM_CLKDIV2_USBDIV(0);// SIM_CLKDIV2_USBDIV(2) | SIM_CLKDIV2_USBFRAC_MASK; //(USBFRAC + 1)/(USBDIV + 1) = (1 + 1)/(2 + 1) = 2/3 for 72Mhz clock
-
-	//2: Gate USB clock
-	SIM_SCGC4 |= SIM_SCGC4_USBOTG_MASK;
-
-	//3: Software USB module reset
-	USB0_USBTRC0 |= USB_USBTRC0_USBRESET_MASK;
-	while (USB0_USBTRC0 & USB_USBTRC0_USBRESET_MASK);
-
-	//5: Clear all ISR flags and enable weak pull downs
-	USB0_ISTAT = 0xFF;
-	USB0_ERRSTAT = 0xFF;
-	USB0_OTGISTAT = 0xFF;
-	USB0_USBTRC0 |= 0x40; //a hint was given that this is an undocumented interrupt bit
-
-	//6: Enable USB reset interrupt
-	USB0_CTL = USB_CTL_USBENSOFEN_MASK;
-	USB0_USBCTRL = 0;
-
-	USB0_INTEN |= USB_INTEN_USBRSTEN_MASK;
-	//NVIC_SET_PRIORITY(IRQ(INT_USB0), 112);
-	enable_irq(IRQ(INT_USB0));
-
-	//7: Enable pull-up resistor on D+ (Full speed, 12Mbit/s)
-	USB0_CONTROL = USB_CONTROL_DPPULLUPNONOTG_MASK;
 }
 
