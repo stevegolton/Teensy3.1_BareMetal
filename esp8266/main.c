@@ -221,7 +221,7 @@ static void exampleTaskHandler( void *pvParameters )
 #ifdef STATION_MODE
 	esp_ap_mode(&esp, esp_ap_mode_station);
 	esp_ap_disconnect(&esp);
-	if(0 != esp_ap_join(&esp, "PLUSNET-2M32", "3284be6a23"))
+	if(0 != esp_ap_join(&esp, "ssid", "pass"))
 	{
 		//return EXIT_FAILURE;
 	}
